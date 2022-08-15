@@ -1,0 +1,9 @@
+<library path="lib/libfranka_feedback_linearization_controller">
+  <class name="franka_feedback_linearization_controller/FrankaFeedbackLinearizationController"
+         type="franka_feedback_linearization_controller::FrankaFeedbackLinearizationController"
+         base_class_type="controller_interface::ControllerBase">
+    <description>
+      Feedback linearization controller for Franka 
+    </description>
+  </class>
+</library>
