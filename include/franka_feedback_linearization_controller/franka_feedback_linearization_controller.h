@@ -109,6 +109,17 @@ private:
     geometry_msgs::Vector3Stamped ee_desired_ori;
     geometry_msgs::Vector3Stamped ee_measured_ori;
 
+    Eigen::Matrix<double, 1, 6> tpos {};
+    Eigen::Matrix<double, 1, 6> tvel {};
+    Eigen::Matrix<double, 1, 6> tacc {};
+    Eigen::Matrix <double,6,1> X{};
+    Eigen::Matrix <double,6,1> dX{};
+    Eigen::Matrix <double,6,1> ddX{};  
+
+    Eigen::Matrix<double, 6, 7> jacobian;
+    Eigen::Matrix<double, 6, 1> error;
+    Eigen::Quaterniond Quaternion;
+
 
 
 

@@ -148,7 +148,7 @@ include
 #   src/${PROJECT_NAME}/franka_arm_ros.cpp
 # )
 
-add_library(franka_feedback_linearization_controller_lib src/franka_feedback_linearization_controller.cpp)
+add_library(franka_feedback_linearization_controller src/franka_feedback_linearization_controller.cpp)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -174,7 +174,7 @@ add_library(franka_feedback_linearization_controller_lib src/franka_feedback_lin
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
-target_link_libraries(franka_feedback_linearization_controller_lib pinocchio::pinocchio ${catkin_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} pinocchio::pinocchio ${catkin_LIBRARIES})
 
 #############
 ## Install ##

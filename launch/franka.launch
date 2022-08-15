@@ -33,12 +33,12 @@
        />
 
   <!-- Specify target position -->
-  <param name="x_target" type="double" value="0.2"/>
-  <param name="y_target" type="double" value="0.5"/>
-  <param name="z_target" type="double" value="0.3"/>
-  <param name="r_target" type="double" value="1.57079632679"/>
-  <param name="p_target" type="double" value="0.78539816339"/>
-  <param name="ya_target" type="double" value="0.52359877559"/>
+  <param name="x_target" type="double" value="0.4"/>
+  <param name="y_target" type="double" value="0.4"/>
+  <param name="z_target" type="double" value="0.4"/>
+  <param name="r_target" type="double" value="3.02333333333"/>
+  <param name="p_target" type="double" value="0.15398163"/>
+  <param name="ya_target" type="double" value="0.185398163"/>
   <param name="terminal_time" type="double" value="10.0"/>
 
   <!-- Specify PD gains -->

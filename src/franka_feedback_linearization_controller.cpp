@@ -171,11 +171,10 @@ namespace franka_feedback_linearization_controller {
         double t = passedTime.toSec(); 
          //calculating time vector t_pos, t_vel, t_acc, that could use to calculate the position, velocity, and acceleration of the ee at current time t
         // by multiplying time vector and the constant vector x<var> that we found previously 
-        Eigen::Matrix<double, 1, 6> tpos {};
+
         tpos << 1,t,pow(t,2),pow(t,3), pow(t,4),pow(t,5); 
-        Eigen::Matrix<double, 1, 6> tvel {};
+
         tvel << 0,1,2*t, 3*pow(t,2), 4*pow(t,3), 5*pow(t,4); 
-        Eigen::Matrix<double, 1, 6> tacc {};
         tacc << 0,0,2,6*t, 12*pow(t,2),20*pow(t,3);
         //calculating the position, velocity, acceleration in direction <var> for the ee
         double x = tpos*xx;
@@ -198,11 +197,9 @@ namespace franka_feedback_linearization_controller {
         double ddya = tacc*xya;
 
         //concentrating postion, velocity, acceleration varables into vectors respectively 
-        Eigen::Matrix <double,6,1> X{}; 
+         
         X << x,y,z,r,p,ya;
-        Eigen::Matrix <double,6,1> dX{};
-        dX <<dx,dy,dz,dr,dp,dya;
-        Eigen::Matrix <double,6,1> ddX{};   
+        dX <<dx,dy,dz,dr,dp,dya; 
         ddX <<ddx,ddy,ddz,ddr,ddp,ddya;
 
         // get state variables
@@ -210,7 +207,6 @@ namespace franka_feedback_linearization_controller {
         Eigen::Map<Eigen::Matrix<double, 7, 1>> coriolis(coriolis_array.data());
 
         // get Jacobian matrix
-        Eigen::Matrix<double, 6, 7> jacobian;
         pinocchio::computeFrameJacobian(model, data, q, controlled_frame, pinocchio::LOCAL_WORLD_ALIGNED, jacobian);
 
         if (t > terminal_time) {
@@ -222,9 +218,28 @@ namespace franka_feedback_linearization_controller {
 
         // get time derivative of positional Jacobian
         dJ = pinocchio::computeJointJacobiansTimeVariation(model, data, q, dq);
-            Eigen::Matrix<double, 6, 1> error;
-            error.head(3) << X[0]-position_curr_[0],X[1]-position_curr_[1],X[2]-position_curr_[2];
-            error.tail(3) << r_T-euler[0], p_T-euler[1], ya_T-euler[2]; 
+        error.head(3) << X[0]-position_curr_[0],X[1]-position_curr_[1],X[2]-position_curr_[2];
+        double cy = cos(ya * 0.5);
+        double sy = sin(ya * 0.5);
+        double cp = cos(p * 0.5);
+        double sp = sin(p * 0.5);
+        double cr = cos(r * 0.5);
+        double sr = sin(r * 0.5);
+
+        Quaternion.w() = cr * cp * cy + sr * sp * sy;
+        Quaternion.x() = sr * cp * cy - cr * sp * sy;
+        Quaternion.y() = cr * sp * cy + sr * cp * sy;
+        Quaternion.z() = cr * cp * sy - sr * sp * cy;
+        if (Quaternion.coeffs().dot(orientation_curr_.coeffs()) < 0.0) {
+            orientation_curr_.coeffs() << -orientation_curr_.coeffs();
+        }
+        Eigen::Quaterniond error_quaternion(orientation_curr_.inverse() * Quaternion);
+        error.tail(3) << error_quaternion.x(), error_quaternion.y(), error_quaternion.z();
+        error.tail(3) << curr_transform.linear() * error.tail(3);
+        
+
+
+
         // get errors
         delta_q = jacobian.colPivHouseholderQr().solve(error);
         delta_dq = jacobian.colPivHouseholderQr().solve(dX) - dq;
@@ -244,9 +259,9 @@ namespace franka_feedback_linearization_controller {
             joint_handles_[i].setCommand(torques[i]);
         }
 
-        ee_desired_pos.vector.x = x;
-        ee_desired_pos.vector.y = y;
-        ee_desired_pos.vector.z = z;
+        ee_desired_pos.vector.x = X[0];
+        ee_desired_pos.vector.y = X[1];
+        ee_desired_pos.vector.z = X[2];
         ee_desired_pos.header.stamp = ros::Time::now();
 
         ee_measured_pos.vector.x = position_curr_[0];
@@ -254,9 +269,9 @@ namespace franka_feedback_linearization_controller {
         ee_measured_pos.vector.z = position_curr_[2];
         ee_measured_pos.header.stamp = ros::Time::now();
 
-        ee_desired_ori.vector.x = r;
-        ee_desired_ori.vector.y = p;
-        ee_desired_ori.vector.z = ya;
+        ee_desired_ori.vector.x = X[3];
+        ee_desired_ori.vector.y = X[4];
+        ee_desired_ori.vector.z = X[5];
         ee_desired_ori.header.stamp = ros::Time::now();
 
         ee_measured_ori.vector.x = euler[0];
