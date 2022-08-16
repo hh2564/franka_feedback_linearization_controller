@@ -54,10 +54,6 @@ private:
     std::vector<hardware_interface::JointHandle> joint_handles_;
     ros::Duration elapsed_time_;
     std::array<double, 7> initial_pose_{};
-    ros::Publisher pospub;
-    ros::Publisher goalpub;
-    ros::Publisher oripub;
-    ros::Publisher goaloripub;
 
     int controlled_frame; 
     ros::Time beginTime; 
@@ -103,11 +99,14 @@ private:
     ros::Publisher ee_desiredpos_pub;
     ros::Publisher ee_measuredori_pub;
     ros::Publisher ee_desiredori_pub;
+    ros::Publisher ori_error_pub; 
+    ros::Publisher joint_angle_pub;
 
     geometry_msgs::Vector3Stamped ee_desired_pos;
     geometry_msgs::Vector3Stamped ee_measured_pos;
     geometry_msgs::Vector3Stamped ee_desired_ori;
     geometry_msgs::Vector3Stamped ee_measured_ori;
+    geometry_msgs::Vector3Stamped ee_ori_error;
 
     Eigen::Matrix<double, 1, 6> tpos {};
     Eigen::Matrix<double, 1, 6> tvel {};

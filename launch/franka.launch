@@ -37,8 +37,8 @@
   <param name="y_target" type="double" value="0.4"/>
   <param name="z_target" type="double" value="0.4"/>
   <param name="r_target" type="double" value="3.02333333333"/>
-  <param name="p_target" type="double" value="0.15398163"/>
-  <param name="ya_target" type="double" value="0.185398163"/>
+  <param name="p_target" type="double" value="0.05398163"/>
+  <param name="ya_target" type="double" value="0.055398163"/>
   <param name="terminal_time" type="double" value="10.0"/>
 
   <!-- Specify PD gains -->

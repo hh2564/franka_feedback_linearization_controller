@@ -8,6 +8,7 @@
 #include <ros/ros.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Vector3Stamped.h>
+#include <std_msgs/Float64MultiArray.h>
 
 
 #include <franka/robot_state.h>
@@ -21,6 +22,8 @@ namespace franka_feedback_linearization_controller {
     ee_desiredpos_pub = node_handle.advertise<geometry_msgs::Vector3Stamped>("/ee_desired_pos", 1000);
     ee_measuredori_pub = node_handle.advertise<geometry_msgs::Vector3Stamped>("/ee_measured_ori", 1000);
     ee_desiredori_pub = node_handle.advertise<geometry_msgs::Vector3Stamped>("/ee_desired_ori", 1000);
+    ori_error_pub = node_handle.advertise<geometry_msgs::Vector3Stamped>("/euler_error", 1000);
+    joint_angle_pub = node_handle.advertise<std_msgs::Float64MultiArray>("/curr_joint_angle", 1000);
 
     std::string arm_id;
     if (!node_handle.getParam("arm_id", arm_id)) {
@@ -234,9 +237,11 @@ namespace franka_feedback_linearization_controller {
             orientation_curr_.coeffs() << -orientation_curr_.coeffs();
         }
         Eigen::Quaterniond error_quaternion(orientation_curr_.inverse() * Quaternion);
-        error.tail(3) << error_quaternion.x(), error_quaternion.y(), error_quaternion.z();
-        error.tail(3) << curr_transform.linear() * error.tail(3);
-        
+        auto erroreuler = error_quaternion.toRotationMatrix().eulerAngles(0, 1, 2);
+        // error.tail(3) << error_quaternion.x(), error_quaternion.y(), error_quaternion.z();
+        // error.tail(3) << curr_transform.linear() * error.tail(3);
+        error.tail(3) << erroreuler[0],erroreuler[1],erroreuler[2];
+
 
 
 
@@ -279,10 +284,29 @@ namespace franka_feedback_linearization_controller {
         ee_measured_ori.vector.z = euler[2];
         ee_measured_ori.header.stamp = ros::Time::now();
 
+        ee_ori_error.vector.x = error[3];
+        ee_ori_error.vector.y = error[4];
+        ee_ori_error.vector.z = error[5];
+        ee_ori_error.header.stamp = ros::Time::now();
+
+        std_msgs::Float64MultiArray array_msg;
+        array_msg.data.resize(7);
+        
+        array_msg.data[0] = q[0];
+        array_msg.data[1] = q[1];
+        array_msg.data[2] = q[2];
+        array_msg.data[3] = q[3];
+        array_msg.data[4] = q[4];
+        array_msg.data[5] = q[5];
+        array_msg.data[6] = q[6];
+
+
+        joint_angle_pub.publish(array_msg);
         ee_desiredpos_pub.publish(ee_desired_pos);
         ee_measuredpos_pub.publish(ee_measured_pos);
         ee_measuredori_pub.publish(ee_measured_ori);
         ee_desiredori_pub.publish(ee_desired_ori); 
+        ori_error_pub.publish(ee_ori_error);
     }
 
 }
