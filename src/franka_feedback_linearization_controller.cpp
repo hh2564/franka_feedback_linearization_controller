@@ -98,7 +98,7 @@ namespace franka_feedback_linearization_controller {
 
     }
 
-    void FrankaFeedbackLinearizationController::starting(const ros::Time& /* time */) {
+ void FrankaFeedbackLinearizationController::starting(const ros::Time& /* time */) {
         franka::RobotState initial_state = state_handle_->getRobotState();
         // convert to eigen
         Eigen::Map<Eigen::Matrix<double, 7, 1>> q_initial(initial_state.q.data());
@@ -222,25 +222,15 @@ namespace franka_feedback_linearization_controller {
         // get time derivative of positional Jacobian
         dJ = pinocchio::computeJointJacobiansTimeVariation(model, data, q, dq);
         error.head(3) << X[0]-position_curr_[0],X[1]-position_curr_[1],X[2]-position_curr_[2];
-        double cy = cos(ya * 0.5);
-        double sy = sin(ya * 0.5);
-        double cp = cos(p * 0.5);
-        double sp = sin(p * 0.5);
-        double cr = cos(r * 0.5);
-        double sr = sin(r * 0.5);
-
-        Quaternion.w() = cr * cp * cy + sr * sp * sy;
-        Quaternion.x() = sr * cp * cy - cr * sp * sy;
-        Quaternion.y() = cr * sp * cy + sr * cp * sy;
-        Quaternion.z() = cr * cp * sy - sr * sp * cy;
+        Quaternion = Eigen::AngleAxisd(r, Eigen::Vector3d::UnitX())* Eigen::AngleAxisd(p, Eigen::Vector3d::UnitY())* Eigen::AngleAxisd(ya, Eigen::Vector3d::UnitZ());
         if (Quaternion.coeffs().dot(orientation_curr_.coeffs()) < 0.0) {
             orientation_curr_.coeffs() << -orientation_curr_.coeffs();
         }
         Eigen::Quaterniond error_quaternion(orientation_curr_.inverse() * Quaternion);
-        auto erroreuler = error_quaternion.toRotationMatrix().eulerAngles(0, 1, 2);
-        // error.tail(3) << error_quaternion.x(), error_quaternion.y(), error_quaternion.z();
-        // error.tail(3) << curr_transform.linear() * error.tail(3);
-        error.tail(3) << erroreuler[0],erroreuler[1],erroreuler[2];
+        error_quaternion.normalize(); 
+        auto eulerq = error_quaternion.toRotationMatrix().eulerAngles(0, 1, 2);
+        error.tail(3) << error_quaternion.x(), error_quaternion.y(), error_quaternion.z();
+        error.tail(3) << curr_transform.linear() * error.tail(3);
 
 
 
@@ -259,10 +249,10 @@ namespace franka_feedback_linearization_controller {
         // compute ID controller
         torques = M * (ddq_desired + kp_delta_q * delta_q + kd_delta_dq * delta_dq) + coriolis - kd_dq * dq; 
 
-        // set torque
         for (size_t i = 0; i < 7; ++i) {
             joint_handles_[i].setCommand(torques[i]);
-        }
+        }  
+
 
         ee_desired_pos.vector.x = X[0];
         ee_desired_pos.vector.y = X[1];
