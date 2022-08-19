@@ -125,7 +125,7 @@ endif()
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
  INCLUDE_DIRS include
- LIBRARIES franka_arm_ros
+ LIBRARIES franka_feedback_linearization_controller
  CATKIN_DEPENDS controller_interface dynamic_reconfigure eigen_conversions franka_gripper franka_hw geometry_msgs hardware_interface joint_limits_interface pluginlib realtime_tools roscpp tf tf_conversions urdf visualization_msgs
  DEPENDS Franka
 )
@@ -141,10 +141,7 @@ include
   ${catkin_INCLUDE_DIRS}
 )
 
-## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/franka_arm_ros.cpp
-# )
+
 
 add_library(franka_feedback_linearization_controller src/franka_feedback_linearization_controller.cpp)
 
