@@ -109,6 +109,12 @@ namespace franka_feedback_linearization_controller {
         //converting from quaternion to euler angle 
         auto euler = orientation_init_.toRotationMatrix().eulerAngles(0, 1, 2);
 
+        Eigen::Map<Eigen::Matrix<double, 7, 1>> q(initial_state.q.data());
+        Eigen::Map<Eigen::Matrix<double, 7, 1>> dq(initial_state.dq.data());
+        pinocchio::forwardKinematics(model, data, q, dq);
+        pinocchio::updateFramePlacements(model, data);
+
+
         // get target end-effector position
         ros::param::get("/x_target", x_T);
         ros::param::get("/y_target", y_T);
@@ -137,11 +143,11 @@ namespace franka_feedback_linearization_controller {
             0.0, 0.0, 2.0, 6.0*terminal_time, 12.0*pow(terminal_time, 2.0), 20.0*pow(terminal_time, 3.0);
         
         Ainv << A.inverse(); 
-        Bx <<  position_init_[0],0,0,x_T,0,0;
+        Bx <<  data.oMf[controlled_frame].translation()(0),0,0,x_T,0,0;
         xx << Ainv*Bx; 
-        By <<  position_init_[1],0,0,y_T,0,0;
+        By <<  data.oMf[controlled_frame].translation()(1),0,0,y_T,0,0;
         xy << Ainv*By;
-        Bz <<  position_init_[2],0,0,z_T,0,0;
+        Bz <<  data.oMf[controlled_frame].translation()(2),0,0,z_T,0,0;
         xz << Ainv*Bz; 
         Br <<  euler[0],0,0,r_T,0,0;
         xr << Ainv*Br; 
@@ -150,7 +156,6 @@ namespace franka_feedback_linearization_controller {
         Bya <<  euler[2],0,0,ya_T,0,0;
         xya << Ainv*Bya; 
 
-        
     
     }
 
@@ -198,6 +203,7 @@ namespace franka_feedback_linearization_controller {
         double ya = tpos*xya;
         double dya = tvel*xya; 
         double ddya = tacc*xya;
+
 
         //concentrating postion, velocity, acceleration varables into vectors respectively 
          
@@ -259,9 +265,9 @@ namespace franka_feedback_linearization_controller {
         ee_desired_pos.vector.z = X[2];
         ee_desired_pos.header.stamp = ros::Time::now();
 
-        ee_measured_pos.vector.x = position_curr_[0];
-        ee_measured_pos.vector.y = position_curr_[1];
-        ee_measured_pos.vector.z = position_curr_[2];
+        ee_measured_pos.vector.x = data.oMf[controlled_frame].translation()(0);
+        ee_measured_pos.vector.y = data.oMf[controlled_frame].translation()(1);
+        ee_measured_pos.vector.z = data.oMf[controlled_frame].translation()(2);
         ee_measured_pos.header.stamp = ros::Time::now();
 
         ee_desired_ori.vector.x = X[3];
@@ -289,7 +295,6 @@ namespace franka_feedback_linearization_controller {
         array_msg.data[4] = q[4];
         array_msg.data[5] = q[5];
         array_msg.data[6] = q[6];
-
 
         joint_angle_pub.publish(array_msg);
         ee_desiredpos_pub.publish(ee_desired_pos);
