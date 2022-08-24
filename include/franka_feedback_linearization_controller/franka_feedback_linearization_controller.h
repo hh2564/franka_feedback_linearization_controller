@@ -31,6 +31,7 @@
 #include "geometry_msgs/PoseStamped.h"
 #include "std_msgs/Float64MultiArray.h"
 #include <geometry_msgs/Vector3Stamped.h>
+#include <geometry_msgs/QuaternionStamped.h>
 
 #include <Eigen/Dense>
 #include<Eigen/Eigen>
@@ -101,12 +102,14 @@ private:
     ros::Publisher ee_desiredori_pub;
     ros::Publisher ori_error_pub; 
     ros::Publisher joint_angle_pub;
+    ros::Publisher desired_qt_pub;
 
     geometry_msgs::Vector3Stamped ee_desired_pos;
     geometry_msgs::Vector3Stamped ee_measured_pos;
     geometry_msgs::Vector3Stamped ee_desired_ori;
     geometry_msgs::Vector3Stamped ee_measured_ori;
     geometry_msgs::Vector3Stamped ee_ori_error;
+    geometry_msgs::QuaternionStamped des_qt;  
 
     Eigen::Matrix<double, 1, 6> tpos {};
     Eigen::Matrix<double, 1, 6> tvel {};
@@ -117,7 +120,16 @@ private:
 
     Eigen::Matrix<double, 6, 7> jacobian;
     Eigen::Matrix<double, 6, 1> error;
+    Eigen::Matrix<double, 6, 1> derror;
     Eigen::Quaterniond Quaternion;
+    double eta;
+    double eta_d; 
+    Eigen::Matrix<double, 3, 1> quat{};
+    Eigen::Matrix<double, 3, 1> quat_d{};
+    Eigen::Matrix<double, 3, 1> e_o{};
+    
+
+
 
 
 

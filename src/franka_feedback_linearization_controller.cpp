@@ -9,6 +9,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Vector3Stamped.h>
 #include <std_msgs/Float64MultiArray.h>
+#include <geometry_msgs/QuaternionStamped.h>
 
 
 #include <franka/robot_state.h>
@@ -24,6 +25,7 @@ namespace franka_feedback_linearization_controller {
     ee_desiredori_pub = node_handle.advertise<geometry_msgs::Vector3Stamped>("/ee_desired_ori", 1000);
     ori_error_pub = node_handle.advertise<geometry_msgs::Vector3Stamped>("/euler_error", 1000);
     joint_angle_pub = node_handle.advertise<std_msgs::Float64MultiArray>("/curr_joint_angle", 1000);
+    desired_qt_pub = node_handle.advertise<geometry_msgs::QuaternionStamped>("/desired_qt", 1000);
 
     std::string arm_id;
     if (!node_handle.getParam("arm_id", arm_id)) {
@@ -99,6 +101,7 @@ namespace franka_feedback_linearization_controller {
     }
 
  void FrankaFeedbackLinearizationController::starting(const ros::Time& /* time */) {
+        
         franka::RobotState initial_state = state_handle_->getRobotState();
         // convert to eigen
         Eigen::Map<Eigen::Matrix<double, 7, 1>> q_initial(initial_state.q.data());
@@ -227,7 +230,7 @@ namespace franka_feedback_linearization_controller {
 
         // get time derivative of positional Jacobian
         dJ = pinocchio::computeJointJacobiansTimeVariation(model, data, q, dq);
-        error.head(3) << X[0]-position_curr_[0],X[1]-position_curr_[1],X[2]-position_curr_[2];
+        error.head(3) << X[0]-data.oMf[controlled_frame].translation()(0),X[1]-data.oMf[controlled_frame].translation()(1),X[2]-data.oMf[controlled_frame].translation()(2);
         Quaternion = Eigen::AngleAxisd(r, Eigen::Vector3d::UnitX())* Eigen::AngleAxisd(p, Eigen::Vector3d::UnitY())* Eigen::AngleAxisd(ya, Eigen::Vector3d::UnitZ());
         if (Quaternion.coeffs().dot(orientation_curr_.coeffs()) < 0.0) {
             orientation_curr_.coeffs() << -orientation_curr_.coeffs();
@@ -238,12 +241,19 @@ namespace franka_feedback_linearization_controller {
         error.tail(3) << error_quaternion.x(), error_quaternion.y(), error_quaternion.z();
         error.tail(3) << curr_transform.linear() * error.tail(3);
 
+        eta_d = Quaternion.w(); 
+        eta = orientation_curr_.w(); 
+        quat_d << Quaternion.x(),Quaternion.y(),Quaternion.z(); 
+        quat << orientation_curr_.x(),orientation_curr_.y(),orientation_curr_.z(); 
+        e_o = eta_d*quat -eta*quat_d-quat_d.cross(quat); 
+        derror << error[0], error[1], error[2], e_o[0], e_o[1], e_o[2]; 
 
 
 
         // get errors
         delta_q = jacobian.colPivHouseholderQr().solve(error);
         delta_dq = jacobian.colPivHouseholderQr().solve(dX) - dq;
+        // delta_dq = jacobian.colPivHouseholderQr().solve(derror);
 
         // get desired joint acceleration
         ddq_desired = jacobian.colPivHouseholderQr().solve(ddX - dJ * dq);
@@ -259,7 +269,11 @@ namespace franka_feedback_linearization_controller {
             joint_handles_[i].setCommand(torques[i]);
         }  
 
-
+        des_qt.quaternion.x = Quaternion.x(); 
+        des_qt.quaternion.y = Quaternion.y(); 
+        des_qt.quaternion.z = Quaternion.z(); 
+        des_qt.quaternion.w = Quaternion.w(); 
+        des_qt.header.stamp = ros::Time::now();
         ee_desired_pos.vector.x = X[0];
         ee_desired_pos.vector.y = X[1];
         ee_desired_pos.vector.z = X[2];
@@ -302,6 +316,7 @@ namespace franka_feedback_linearization_controller {
         ee_measuredori_pub.publish(ee_measured_ori);
         ee_desiredori_pub.publish(ee_desired_ori); 
         ori_error_pub.publish(ee_ori_error);
+        desired_qt_pub.publish(des_qt); 
     }
 
 }
