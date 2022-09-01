@@ -25,6 +25,9 @@ namespace franka_feedback_linearization_controller {
     ee_desiredori_pub = node_handle.advertise<geometry_msgs::Vector3Stamped>("/ee_desired_ori", 1000);
     ori_error_pub = node_handle.advertise<geometry_msgs::Vector3Stamped>("/euler_error", 1000);
     joint_angle_pub = node_handle.advertise<std_msgs::Float64MultiArray>("/curr_joint_angle", 1000);
+    joint_velocity_pub = node_handle.advertise<std_msgs::Float64MultiArray>("/curr_joint_velocity", 1000);
+    torquepub = node_handle.advertise<std_msgs::Float64MultiArray>("/tau_command", 1000);
+    vpub = node_handle.advertise<std_msgs::Float64MultiArray>("/numerical_v", 1000);
     desired_qt_pub = node_handle.advertise<geometry_msgs::QuaternionStamped>("/desired_qt", 1000);
 
     std::string arm_id;
@@ -116,7 +119,7 @@ namespace franka_feedback_linearization_controller {
         Eigen::Map<Eigen::Matrix<double, 7, 1>> dq(initial_state.dq.data());
         pinocchio::forwardKinematics(model, data, q, dq);
         pinocchio::updateFramePlacements(model, data);
-
+        beginTime = ros::Time::now(); 
 
         // get target end-effector position
         ros::param::get("/x_target", x_T);
@@ -126,16 +129,20 @@ namespace franka_feedback_linearization_controller {
         ros::param::get("/p_target", p_T);
         ros::param::get("/ya_target", ya_T);
         ros::param::get("/terminal_time", terminal_time);
+        ros::param::get("/terminal_time2", terminal_time2);
+        ros::param::get("/x_target2", x_T2);
+        ros::param::get("/y_target2", y_T2);
+        ros::param::get("/z_target2", z_T2);
+        ros::param::get("/terminal_time3", terminal_time3);
+        ros::param::get("/x_target3", x_T3);
+        ros::param::get("/y_target3", y_T3);
+        ros::param::get("/z_target3", z_T3);
 
         // get pd gains
         ros::param::get("/kp_delta_q", kp_delta_q);
         ros::param::get("/kd_delta_dq", kd_delta_dq);
         ros::param::get("/kd_dq", kd_dq);
         
-        //getting the intial time to generate command in update 
-        beginTime = ros::Time::now(); 
-        MessageTime = ros::Duration(terminal_time);
-        endTime = beginTime + MessageTime;
 
         // solve for trajctory coefficients
         A << 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
@@ -152,12 +159,43 @@ namespace franka_feedback_linearization_controller {
         xy << Ainv*By;
         Bz <<  data.oMf[controlled_frame].translation()(2),0,0,z_T,0,0;
         xz << Ainv*Bz; 
-        Br <<  euler[0],0,0,r_T,0,0;
+        Br <<  euler[0],0,0,euler[0],0,0;
         xr << Ainv*Br; 
-        Bp <<  euler[1],0,0,p_T,0,0;
+        Bp <<  euler[1],0,0,euler[1],0,0;
         xp << Ainv*Bp; 
-        Bya <<  euler[2],0,0,ya_T,0,0;
+        Bya <<  euler[2],0,0,euler[2],0,0;
         xya << Ainv*Bya; 
+        secstart = false;
+        thirdstart = false; 
+
+        dt1a=1+rand()%5; 
+        dt1b=1+rand()%5;
+        dt1c=1+rand()%5;
+        dt1d=1+rand()%5; 
+        dt2a=1+rand()%5; 
+        dt2b=1+rand()%5;
+        dt2c=1+rand()%5;
+        dt2d=1+rand()%5;
+        dt3a=1+rand()%5; 
+        dt3b=1+rand()%5;
+        dt3c=1+rand()%5;
+        dt3d=1+rand()%5;
+        dt4a=1+rand()%5; 
+        dt4b=1+rand()%5;
+        dt4c=1+rand()%5;
+        dt4d=1+rand()%5;
+        dt5a=1+rand()%5; 
+        dt5b=1+rand()%5;
+        dt5c=1+rand()%5;
+        dt5d=1+rand()%5;
+        dt7a=1+rand()%5; 
+        dt7b=1+rand()%5;
+        dt7c=1+rand()%5;
+        dt7d=1+rand()%5;
+        dt6a=1+rand()%5; 
+        dt6b=1+rand()%5;
+        dt6c=1+rand()%5;
+        dt6d=1+rand()%5;
 
     
     }
@@ -181,12 +219,61 @@ namespace franka_feedback_linearization_controller {
         ros::Duration passedTime = curTime - beginTime;
         double t = passedTime.toSec(); 
          //calculating time vector t_pos, t_vel, t_acc, that could use to calculate the position, velocity, and acceleration of the ee at current time t
-        // by multiplying time vector and the constant vector x<var> that we found previously 
-
+        // by multiplying time vector and the constant vector x<var> that we found previously
         tpos << 1,t,pow(t,2),pow(t,3), pow(t,4),pow(t,5); 
-
         tvel << 0,1,2*t, 3*pow(t,2), 4*pow(t,3), 5*pow(t,4); 
         tacc << 0,0,2,6*t, 12*pow(t,2),20*pow(t,3);
+
+        if (t > terminal_time && secstart == false && t < terminal_time+terminal_time2 ) {
+            A2 << 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+                0.0, 0.0, 2.0, 0.0, 0.0, 0.0,
+                1.0, terminal_time2, pow(terminal_time2, 2.0), pow(terminal_time2, 3.0), pow(terminal_time2, 4.0), pow(terminal_time2, 5.0),
+                0.0, 1.0, 2.0*terminal_time2, 3.0*pow(terminal_time2, 2.0), 4.0*pow(terminal_time2, 3.0), 5.0*pow(terminal_time2, 4.0),
+                0.0, 0.0, 2.0, 6.0*terminal_time2, 12.0*pow(terminal_time2, 2.0), 20.0*pow(terminal_time2, 3.0);
+            Ainv2 << A2.inverse(); 
+            Bx <<  data.oMf[controlled_frame].translation()(0),0,0,x_T2,0,0;
+            xx << Ainv2*Bx; 
+            By <<  data.oMf[controlled_frame].translation()(1),0,0,y_T2,0,0;
+            xy << Ainv2*By;
+            Bz <<  data.oMf[controlled_frame].translation()(2),0,0,z_T2,0,0;
+            xz << Ainv2*Bz; 
+            secstart = true; 
+        }
+
+        if (t > terminal_time+terminal_time2 && thirdstart == false) {
+            A3 << 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+                0.0, 0.0, 2.0, 0.0, 0.0, 0.0,
+                1.0, terminal_time3, pow(terminal_time3, 2.0), pow(terminal_time3, 3.0), pow(terminal_time3, 4.0), pow(terminal_time3, 5.0),
+                0.0, 1.0, 2.0*terminal_time3, 3.0*pow(terminal_time3, 2.0), 4.0*pow(terminal_time3, 3.0), 5.0*pow(terminal_time3, 4.0),
+                0.0, 0.0, 2.0, 6.0*terminal_time3, 12.0*pow(terminal_time3, 2.0), 20.0*pow(terminal_time3, 3.0);
+            Ainv3 << A3.inverse(); 
+            Bx <<  data.oMf[controlled_frame].translation()(0),0,0,x_T3,0,0;
+            xx << Ainv3*Bx; 
+            By <<  data.oMf[controlled_frame].translation()(1),0,0,y_T3,0,0;
+            xy << Ainv3*By;
+            Bz <<  data.oMf[controlled_frame].translation()(2),0,0,z_T3,0,0;
+            xz << Ainv3*Bz; 
+            thirdstart = true; 
+        }
+
+        if (t > terminal_time && terminal_time+terminal_time2 > t) {
+            double t2 = t-terminal_time; 
+            tpos << 1,t2,pow(t2,2),pow(t2,3), pow(t2,4),pow(t2,5); 
+            tvel << 0,1,2*t2, 3*pow(t2,2), 4*pow(t2,3), 5*pow(t2,4); 
+            tacc << 0,0,2,6*t2, 12*pow(t2,2),20*pow(t2,3);
+        }
+
+        if (terminal_time+terminal_time2 < t) {
+            double t3 = t-terminal_time-terminal_time2; 
+            tpos << 1,t3,pow(t3,2),pow(t3,3), pow(t3,4),pow(t3,5); 
+            tvel << 0,1,2*t3, 3*pow(t3,2), 4*pow(t3,3), 5*pow(t3,4); 
+            tacc << 0,0,2,6*t3, 12*pow(t3,2),20*pow(t3,3);
+        }
+
+        
+        
         //calculating the position, velocity, acceleration in direction <var> for the ee
         double x = tpos*xx;
         double dx = tvel*xx; 
@@ -210,9 +297,9 @@ namespace franka_feedback_linearization_controller {
 
         //concentrating postion, velocity, acceleration varables into vectors respectively 
          
-        X << x,y,z,r,p,ya;
-        dX <<dx,dy,dz,dr,dp,dya; 
-        ddX <<ddx,ddy,ddz,ddr,ddp,ddya;
+        X << x,y,z,euler[0],euler[1],euler[2];
+        dX <<dx,dy,dz,0,0,0; 
+        ddX <<ddx,ddy,ddz,0,0,0;
 
         // get state variables
         std::array<double, 7> coriolis_array = model_handle_->getCoriolis();
@@ -221,8 +308,8 @@ namespace franka_feedback_linearization_controller {
         // get Jacobian matrix
         pinocchio::computeFrameJacobian(model, data, q, controlled_frame, pinocchio::LOCAL_WORLD_ALIGNED, jacobian);
 
-        if (t > terminal_time) {
-            X << x_T, y_T, z_T,r_T,p_T,ya_T;
+        if (t > terminal_time+terminal_time2 + terminal_time3) {
+            X << x_T3, y_T3, z_T3,euler[0],euler[1],euler[2];
             dX << 0.0, 0.0, 0.0,0.0, 0.0, 0.0;
             ddX << 0.0, 0.0, 0.0,0.0, 0.0, 0.0;
         }
@@ -235,25 +322,25 @@ namespace franka_feedback_linearization_controller {
         if (Quaternion.coeffs().dot(orientation_curr_.coeffs()) < 0.0) {
             orientation_curr_.coeffs() << -orientation_curr_.coeffs();
         }
-        Eigen::Quaterniond error_quaternion(orientation_curr_.inverse() * Quaternion);
-        error_quaternion.normalize(); 
-        auto eulerq = error_quaternion.toRotationMatrix().eulerAngles(0, 1, 2);
-        error.tail(3) << error_quaternion.x(), error_quaternion.y(), error_quaternion.z();
-        error.tail(3) << curr_transform.linear() * error.tail(3);
+        error.tail(3) << 0,0,0; 
+        // Eigen::Quaterniond error_quaternion(orientation_curr_.inverse() * Quaternion);
+        // error_quaternion.normalize(); 
+        // error.tail(3) << error_quaternion.x(), error_quaternion.y(), error_quaternion.z();
+        // error.tail(3) << curr_transform.linear() * error.tail(3);
 
-        eta_d = Quaternion.w(); 
-        eta = orientation_curr_.w(); 
-        quat_d << Quaternion.x(),Quaternion.y(),Quaternion.z(); 
-        quat << orientation_curr_.x(),orientation_curr_.y(),orientation_curr_.z(); 
-        e_o = eta_d*quat -eta*quat_d-quat_d.cross(quat); 
-        derror << error[0], error[1], error[2], e_o[0], e_o[1], e_o[2]; 
+        // eta_d = Quaternion.w(); 
+        // eta = orientation_curr_.w(); 
+        // quat_d << Quaternion.x(),Quaternion.y(),Quaternion.z(); 
+        // quat << orientation_curr_.x(),orientation_curr_.y(),orientation_curr_.z(); 
+        // e_o = eta_d*quat -eta*quat_d-quat_d.cross(quat); 
+        // derror << error[0], error[1], error[2], e_o[0], e_o[1], e_o[2]; 
 
 
 
         // get errors
         delta_q = jacobian.colPivHouseholderQr().solve(error);
         delta_dq = jacobian.colPivHouseholderQr().solve(dX) - dq;
-        // delta_dq = jacobian.colPivHouseholderQr().solve(derror);
+        // delta_q = jacobian.colPivHouseholderQr().solve(derror);
 
         // get desired joint acceleration
         ddq_desired = jacobian.colPivHouseholderQr().solve(ddX - dJ * dq);
@@ -263,11 +350,27 @@ namespace franka_feedback_linearization_controller {
         Eigen::Map<Eigen::Matrix<double, 7, 7>> M(mass_array.data()); 
 
         // compute ID controller
-        torques = M * (ddq_desired + kp_delta_q * delta_q + kd_delta_dq * delta_dq) + coriolis - kd_dq * dq; 
+        double dt1 = cos(dt1a-dt1b*t)+sin(1/dt1c*t)-cos(dt1d+t);
+        double dt2 = cos(dt2a-dt2b*t)+sin(1/dt2c*t)-cos(dt2d+t);
+        double dt3 = cos(dt3a-dt3b*t)+sin(1/dt3c*t)-cos(dt3d+t);
+        double dt4 = cos(dt4a-dt4b*t)+sin(1/dt4c*t)-cos(dt4d+t);
+        double dt5 = cos(dt5a-dt5b*t)+sin(1/dt5c*t)-cos(dt5d+t);
+        double dt6 = cos(dt6a-dt6b*t)+sin(1/dt6c*t)-cos(dt6d+t);
+        double dt7 = cos(dt7a-dt7b*t)+sin(1/dt7c*t)-cos(dt7d+t);
+
+        vt << dt1,dt2,dt3,dt4,dt5,dt6,dt7; 
+        vt = 0.01*vt;
+        torques = M * (ddq_desired + kp_delta_q * delta_q + kd_delta_dq * delta_dq) + coriolis + vt; 
+        // torques = M * (ddq_desired + kp_delta_q * delta_q ) + coriolis - kd_dq * dq; 
 
         for (size_t i = 0; i < 7; ++i) {
             joint_handles_[i].setCommand(torques[i]);
         }  
+
+        std_msgs::Float64MultiArray tau; 
+        for (size_t i = 0; i < 7; ++i) {
+            tau.data.push_back(torques[i]);
+        }
 
         des_qt.quaternion.x = Quaternion.x(); 
         des_qt.quaternion.y = Quaternion.y(); 
@@ -310,6 +413,30 @@ namespace franka_feedback_linearization_controller {
         array_msg.data[5] = q[5];
         array_msg.data[6] = q[6];
 
+        std_msgs::Float64MultiArray velocity_msg;
+        velocity_msg.data.resize(7);
+        
+        velocity_msg.data[0] = dq[0];
+        velocity_msg.data[1] = dq[1];
+        velocity_msg.data[2] = dq[2];
+        velocity_msg.data[3] = dq[3];
+        velocity_msg.data[4] = dq[4];
+        velocity_msg.data[5] = dq[5];
+        velocity_msg.data[6] = dq[6];
+
+        std_msgs::Float64MultiArray v_msg;
+        v_msg.data.resize(7);
+        
+        v_msg.data[0] = vt[0];
+        v_msg.data[1] = vt[1];
+        v_msg.data[2] = vt[2];
+        v_msg.data[3] = vt[3];
+        v_msg.data[4] = vt[4];
+        v_msg.data[5] = vt[5];
+        v_msg.data[6] = vt[6];
+
+
+        joint_velocity_pub.publish(velocity_msg);
         joint_angle_pub.publish(array_msg);
         ee_desiredpos_pub.publish(ee_desired_pos);
         ee_measuredpos_pub.publish(ee_measured_pos);
@@ -317,6 +444,8 @@ namespace franka_feedback_linearization_controller {
         ee_desiredori_pub.publish(ee_desired_ori); 
         ori_error_pub.publish(ee_ori_error);
         desired_qt_pub.publish(des_qt); 
+        torquepub.publish(tau);
+        vpub.publish(v_msg); 
     }
 
 }
